@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Shower Turn Tracker</title>
+  <style>
+    :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+    body { margin: 0; background: #0b0c10; color: #e8e8e8; }
+    .wrap { max-width: 680px; margin: 0 auto; padding: 28px 18px 40px; }
+    .card {
+      background: #14161c; border: 1px solid #232633; border-radius: 16px;
+      padding: 18px; box-shadow: 0 10px 25px rgba(0,0,0,.25);
+    }
+    h1 { font-size: 20px; margin: 0 0 12px; font-weight: 650; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+    label { font-size: 12px; opacity: .85; display: block; margin-bottom: 6px; }
+    input {
+      width: 100%; box-sizing: border-box;
+      padding: 10px 12px; border-radius: 12px;
+      border: 1px solid #2a2e3d; background: #0f1117; color: #e8e8e8;
+      outline: none;
+    }
+    input:focus { border-color: #3a7bfd; }
+    .next {
+      margin-top: 16px; padding: 14px; border-radius: 14px;
+      background: #0f1117; border: 1px solid #2a2e3d;
+    }
+    .next .big { font-size: 28px; font-weight: 750; margin-top: 6px; }
+    .muted { opacity: .75; font-size: 13px; margin-top: 8px; }
+    .btns { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+    button {
+      cursor: pointer;
+      border: 1px solid #2a2e3d;
+      background: #1b2030;
+      color: #e8e8e8;
+      padding: 10px 12px;
+      border-radius: 12px;
+      font-weight: 650;
+    }
+    button.primary { background: #2a5bff; border-color: #2a5bff; }
+    button:active { transform: translateY(1px); }
+    .footer { margin-top: 14px; opacity: .65; font-size: 12px; }
+    .pill {
+      display: inline-block; padding: 6px 10px; border-radius: 999px;
+      background: #0f1117; border: 1px solid #2a2e3d; font-size: 12px;
+      margin-right: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Shower Turn Tracker</h1>
+
+      <div class="row">
+        <div>
+          <label for="name0">Person 1</label>
+          <input id="name0" autocomplete="off" />
+        </div>
+        <div>
+          <label for="name1">Person 2</label>
+          <input id="name1" autocomplete="off" />
+        </div>
+      </div>
+
+      <div class="next" aria-live="polite">
+        <div class="pill" id="orderPill">Order: —</div>
+        <div class="muted">Next to shower first:</div>
+        <div class="big" id="nextName">—</div>
+        <div class="muted" id="lastInfo">Last shower: —</div>
+      </div>
+
+      <div class="btns">
+        <button class="primary" id="markBtn">Mark shower complete (swap)</button>
+        <button id="swapBtn">Swap without marking</button>
+        <button id="resetBtn">Reset</button>
+      </div>
+
+      <div class="footer">
+        Saves automatically in this browser (localStorage). Add to your phone home screen for quick access.
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = "shower_turn_tracker_v1";
+
+    const els = {
+      name0: document.getElementById("name0"),
+      name1: document.getElementById("name1"),
+      nextName: document.getElementById("nextName"),
+      lastInfo: document.getElementById("lastInfo"),
+      orderPill: document.getElementById("orderPill"),
+      markBtn: document.getElementById("markBtn"),
+      swapBtn: document.getElementById("swapBtn"),
+      resetBtn: document.getElementById("resetBtn"),
+    };
+
+    function defaultState() {
+      return {
+        people: ["Grace", "Nathan"],
+        firstIndex: 0,
+        lastShowerISO: null, // ISO string
+      };
+    }
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return defaultState();
+        const parsed = JSON.parse(raw);
+        // Light validation / fallback
+        if (!parsed || !Array.isArray(parsed.people) || parsed.people.length !== 2) return defaultState();
+        if (parsed.firstIndex !== 0 && parsed.firstIndex !== 1) parsed.firstIndex = 0;
+        return parsed;
+      } catch {
+        return defaultState();
+      }
+    }
+
+    function saveState(state) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+
+    function fmtDate(iso) {
+      if (!iso) return "—";
+      const d = new Date(iso);
+      return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+    }
+
+    function fmtLastShowerShort(iso) {
+        if (!iso) return "—";
+        const d = new Date(iso);
+
+        const dow = d.toLocaleDateString(undefined, { weekday: "long" });
+        const mm = String(d.getMonth() + 1).padStart(2, "0");
+        const dd = String(d.getDate()).padStart(2, "0");
+
+        return `${dow}, ${mm}/${dd}`;
+    }
+
+    function render(state) {
+      els.name0.value = state.people[0];
+      els.name1.value = state.people[1];
+
+      const first = state.firstIndex;
+      const second = first === 0 ? 1 : 0;
+
+      els.nextName.textContent = state.people[first] || "—";
+      els.orderPill.textContent = `Order: ${state.people[first]} → ${state.people[second]}`;
+
+        if (!state.lastShowerISO) {
+        els.lastInfo.textContent = "Last showered: —";
+        } else {
+        els.lastInfo.textContent = `Last showered: ${fmtLastShowerShort(state.lastShowerISO)}`;
+        }
+    }
+
+    let state = loadState();
+    render(state);
+
+    function updateNames() {
+      state.people[0] = els.name0.value.trim() || "Person 1";
+      state.people[1] = els.name1.value.trim() || "Person 2";
+      saveState(state);
+      render(state);
+    }
+
+    els.name0.addEventListener("input", updateNames);
+    els.name1.addEventListener("input", updateNames);
+
+    function swapTurn() {
+      state.firstIndex = state.firstIndex === 0 ? 1 : 0;
+      saveState(state);
+      render(state);
+    }
+
+    els.swapBtn.addEventListener("click", swapTurn);
+
+    els.markBtn.addEventListener("click", () => {
+      state.lastShowerISO = new Date().toISOString();
+      swapTurn(); // this saves + renders
+    });
+
+    els.resetBtn.addEventListener("click", () => {
+      state = defaultState();
+      saveState(state);
+      render(state);
+    });
+
+  </script>
+</body>
+</html>
